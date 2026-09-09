@@ -1,3 +1,4 @@
+'use client';
 import {
   DeleteIcon,
   EditIcon,
@@ -165,14 +166,11 @@ function Viewer() {
             masterId: realm.id,
             sequence: histories.length,
             prompts: [
-              realms.fill(
-                {
-                  content: '',
-                  variables: [],
-                  properties: {},
-                },
-                useRealmState.getState().content,
-              ),
+              {
+                content: useRealmState.getState().content,
+                variables: [],
+                properties: {},
+              },
             ],
             output: -1,
             outputs: [],
