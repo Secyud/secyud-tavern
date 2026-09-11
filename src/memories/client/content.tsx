@@ -131,7 +131,7 @@ function Content() {
     <StoryEntryList<Memory> state={state}>
       {(entry) => (
         <StoryEntryUpdate entry={entry} state={state}>
-          <Editor entry={entry} />
+          <Editor key={`${entry.masterId}-${entry.entryId}`} entry={entry} />
         </StoryEntryUpdate>
       )}
     </StoryEntryList>

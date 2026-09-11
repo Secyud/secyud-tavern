@@ -99,7 +99,7 @@ function Content() {
     <PresetEntryList<Tool> state={state}>
       {(entry) => (
         <PresetEntryUpdate entry={entry} state={state}>
-          <Editor entry={entry} />
+          <Editor key={`${entry.masterId}-${entry.entryId}`} entry={entry} />
         </PresetEntryUpdate>
       )}
     </PresetEntryList>

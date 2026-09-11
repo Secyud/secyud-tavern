@@ -191,6 +191,9 @@ export function RemoteSearchCombobox({
   const cache = useRef(new SearchCache(size, fetcher));
   const [search, setSearch] = useState<string | null>(null);
   const [value, setValue] = useState(defaultValue ?? null);
+  const [inputValue, setInputValue] = useState(
+    (Array.isArray(defaultValue) ? undefined : defaultValue?.name) ?? '',
+  );
 
   const listRef = useRef<HTMLDivElement>(null);
   // ✅ 新增：配置虚拟滚动器
@@ -237,7 +240,11 @@ export function RemoteSearchCombobox({
         setValue(value);
       }}
       value={value}
-      onInputValueChange={setSearch}
+      inputValue={inputValue}
+      onInputValueChange={(value) => {
+        setInputValue(value);
+        setSearch(value);
+      }}
     >
       {multiple ? (
         <ComboboxChips ref={anchor} className="w-full">

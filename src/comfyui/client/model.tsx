@@ -8,7 +8,6 @@ import {
   XIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import Image from 'next/image';
 import { useRef, useState } from 'react';
 
 import { ComfyUIModel } from '@/comfyui';
@@ -17,6 +16,7 @@ import { ComfyUIModelHoverableItem, comfyuis } from '@/comfyui/client';
 import { useComfyUIModelState } from '@/comfyui/client/state';
 import {
   AspectRatio,
+  AutoMedia,
   Badge,
   DeleteDialog,
   dialogs,
@@ -43,55 +43,43 @@ import {
   TagBox,
   TooltipDialog,
   useImageUploaderState,
-  useRefresh,
 } from '@/components';
-import { files } from '@/files/client';
 import { BusinessError } from '@/interceptors';
 import { useHandler } from '@/interceptors/client';
 
-function ContentItem({ item }: { item: ComfyUIModel }) {
+function ContentItem({ item: nameValueItem }: { item: ComfyUIModel }) {
   const { handler, success } = useHandler();
   const t = useTranslations();
   const { getImageFileId, onFileChange } = useImageUploaderState('cover');
   const { fetch } = useComfyUIModelState();
+  const [item, setItem] = useState<ComfyUIModel>(nameValueItem);
   const formRef = useRef<HTMLFormElement>(null);
-  const { key, refreshKey } = useRefresh();
 
-  const source = files.proxy.url(item.cover);
   return (
     <Item
-      key={key}
       variant={'outline'}
-      className={'min-w-1/4 w-64 overflow-hidden relative sc-dc'}
+      className={'min-w-1/5 w-64 overflow-hidden relative sc-dc'}
     >
       <ItemHeader>
-        <ComfyUIModelHoverableItem id={item.id} path={item.path}>
+        <ComfyUIModelHoverableItem
+          id={item.id}
+          path={item.path}
+          setItem={setItem}
+        >
           {(item) => (
-            <AspectRatio ratio={1}>
-              {source.endsWith('mp4') ? (
-                <video
-                  src={source}
-                  controls
-                  preload="metadata"
-                  className="object-cover rounded-sm aspect-square"
-                />
-              ) : (
-                <Image
-                  src={source}
-                  alt={item.name}
-                  fill
-                  unoptimized
-                  className="object-cover rounded-sm"
-                />
-              )}
+            <AspectRatio className={'w-full'} ratio={1}>
+              <AutoMedia
+                filename={item.cover}
+                className={'object-cover aspect-square'}
+              />
             </AspectRatio>
           )}
         </ComfyUIModelHoverableItem>
       </ItemHeader>
-      <ItemContent className={'h-24'}>
+      <ItemContent>
         <ItemTitle>{item.name}</ItemTitle>
       </ItemContent>
-      <div className={'absolute top-1 left-1 flex flex-col gap-2'}>
+      <div className={'absolute top-3 left-3.5 flex flex-col gap-2'}>
         <Badge variant="secondary">{item.type}</Badge>
         <Badge variant="secondary">{item.model}</Badge>
       </div>
@@ -124,9 +112,6 @@ function ContentItem({ item }: { item: ComfyUIModel }) {
           style={{ maxWidth: '86%', height: '86%' }}
           tooltip={<SquarePenIcon />}
           onSubmit={handler(async (data: FormData) => {
-            const id = await getImageFileId(data);
-            const cover = id ? id : (data.get('cover_src') as string);
-
             await comfyuis.proxy.model.update(item.id, {
               code: item.code,
               name: data.get('name') as string,
@@ -136,10 +121,9 @@ function ContentItem({ item }: { item: ComfyUIModel }) {
               html: data.get('html') as string,
               download: data.get('download') as string,
               model: data.get('model') as string,
-              cover,
+              cover: await getImageFileId(data, 'cover_src'),
             });
 
-            refreshKey();
             success(t('message.update.success'));
             await fetch();
           })}
@@ -155,7 +139,7 @@ function ContentItem({ item }: { item: ComfyUIModel }) {
                 id={`comfyui_model-cover-${item.id}`}
                 className={'max-w-52'}
                 accept={'image/png'}
-                value={source}
+                value={item.cover}
                 onChange={onFileChange}
               />
             </Field>
@@ -262,7 +246,7 @@ export function ModelContent() {
   const { fetch, search } = useComfyUIModelState();
   // 受控组件，解决搜索刷新后光标位置问题
   const [fuzzy, setFuzzy] = useState(search?.fuzzy ?? '');
-  const [editor, setEditor] = useState(
+  const [importer, setImporter] = useState(
     comfyuis.importers.registry.record(civitais.name),
   );
 
@@ -341,17 +325,15 @@ export function ModelContent() {
         <TooltipDialog
           tooltip={<FileDownIcon />}
           onSubmit={handler(async (data: FormData) => {
-            if (!editor) {
+            if (!importer) {
               throw new BusinessError(
                 'importer is required.',
                 'comfyui.importer_invalid',
               );
             }
             const items: ComfyUIModel[] = [];
-            await editor.configureObject(data, items);
-            for (const item of items) {
-              await comfyuis.proxy.model.create(item);
-            }
+            await importer.configureObject(data, items);
+            await comfyuis.proxy.model.import(items);
             await fetch();
             success(t('message.import.success'));
           })}
@@ -366,13 +348,13 @@ export function ModelContent() {
                 id={`comfyui_model-importer`}
                 items={comfyuis.importers.registry.sorted()}
                 name="importer"
-                value={editor}
-                onValueChange={setEditor}
+                value={importer}
+                onValueChange={setImporter}
                 labelAccessor={(e) => t(`comfyui.model.importer_${e.id}`)}
                 valueAccessor={(e) => e.id}
               />
             </Field>
-            {element(editor?.configComponent)}
+            {element(importer?.configComponent)}
           </FieldGroup>
         </TooltipDialog>
       </div>
